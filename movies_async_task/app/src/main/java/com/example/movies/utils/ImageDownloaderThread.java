@@ -1,10 +1,10 @@
-package com.example.td1.utils;
+package com.example.movies.utils;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 
-import com.example.td1.MainActivity;
-import com.example.td1.model.Movie;
+import com.example.movies.MainActivity;
+import com.example.movies.model.Movie;
 
 import java.io.IOException;
 import java.net.MalformedURLException;

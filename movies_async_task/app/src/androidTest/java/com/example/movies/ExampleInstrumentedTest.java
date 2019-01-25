@@ -1,4 +1,4 @@
-package com.example.td1;
+package com.example.movies;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;

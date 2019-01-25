@@ -1,4 +1,4 @@
-package com.example.td1.model;
+package com.example.movies.model;
 
 import android.graphics.Bitmap;
 
