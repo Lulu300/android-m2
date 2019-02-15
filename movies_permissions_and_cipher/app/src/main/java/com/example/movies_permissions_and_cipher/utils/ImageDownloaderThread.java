@@ -6,7 +6,10 @@ import android.graphics.BitmapFactory;
 import com.example.movies_permissions_and_cipher.MainActivity;
 import com.example.movies_permissions_and_cipher.model.Movie;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -29,7 +32,11 @@ public class ImageDownloaderThread implements Runnable {
             url = new URL(movie.getImageUrl());
             URLConnection conn = url.openConnection();
             bitmap = BitmapFactory.decodeStream(conn.getInputStream());
-            movie.setImage(bitmap);
+            OutputStream stream = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 10, stream);
+            movie.setImage(((ByteArrayOutputStream) stream).toByteArray());
+            /* bitmap = BitmapFactory.decodeStream(conn.getInputStream());
+            movie.setImage(bitmap); */
         } catch (MalformedURLException e) {
             e.printStackTrace();
         } catch (IOException e) {

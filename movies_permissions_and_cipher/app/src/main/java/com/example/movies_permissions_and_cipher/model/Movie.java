@@ -2,14 +2,16 @@ package com.example.movies_permissions_and_cipher.model;
 
 import android.graphics.Bitmap;
 
-public class Movie {
+import java.io.Serializable;
+
+public class Movie implements Serializable {
 
     private String imageUrl;
     private String name;
     private String date;
     private String prod;
     private String real;
-    private Bitmap image;
+    private byte image[];
 
     public Movie(String imageUrl, String name, String date, String prod, String real) {
         this.imageUrl = imageUrl;
@@ -29,11 +31,11 @@ public class Movie {
         this.imageUrl = imageUrl;
     }
 
-    public Bitmap getImage() {
+    public byte[] getImage() {
         return image;
     }
 
-    public void setImage(Bitmap image) {
+    public void setImage(byte[] image) {
         this.image = image;
     }
 

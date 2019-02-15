@@ -1,6 +1,8 @@
 package com.example.movies_permissions_and_cipher.adapter;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.support.annotation.NonNull;
 import android.view.LayoutInflater;
@@ -14,6 +16,8 @@ import android.widget.TextView;
 import com.example.movies_permissions_and_cipher.R;
 import com.example.movies_permissions_and_cipher.model.Movie;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.List;
 
 public class ListAdapter extends ArrayAdapter<Movie> {
@@ -50,7 +54,9 @@ public class ListAdapter extends ArrayAdapter<Movie> {
         movieReal.setText(movie.getReal());
 
         if(movie.getImage() != null) {
-            movieImage.setImageBitmap(movie.getImage());
+            InputStream stream = new ByteArrayInputStream(movie.getImage());
+            Bitmap bitmap = BitmapFactory.decodeStream(stream);
+            movieImage.setImageBitmap(bitmap);
         } else {
             movieImage.setImageBitmap(null);
         }

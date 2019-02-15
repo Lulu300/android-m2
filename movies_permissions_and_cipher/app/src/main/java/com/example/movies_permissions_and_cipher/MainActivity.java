@@ -1,6 +1,8 @@
 package com.example.movies_permissions_and_cipher;
 
 import android.app.Activity;
+import android.app.Dialog;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -11,6 +13,7 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -22,12 +25,33 @@ import com.example.movies_permissions_and_cipher.permission.RequestCode;
 import com.example.movies_permissions_and_cipher.utils.ImageDownloaderThread;
 import com.example.movies_permissions_and_cipher.utils.MyThreadFactory;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.lang.reflect.Array;
+import java.nio.file.Path;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+
+import javax.crypto.Cipher;
+import javax.crypto.CipherInputStream;
+import javax.crypto.CipherOutputStream;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SealedObject;
+import javax.crypto.spec.SecretKeySpec;
 
 import static android.Manifest.permission.CAMERA;
 
@@ -36,6 +60,9 @@ public class MainActivity extends Activity {
     public ArrayAdapter<Movie> adapter;
     private Button refresh;
     private Button add;
+    private Button save;
+    private Button load;
+    private Button clear;
     public static Handler handlerTui = new Handler(Looper.getMainLooper());
     public HandlerThread handlerThread = new HandlerThread("handlerThread");
     public Handler handler2;
@@ -43,6 +70,7 @@ public class MainActivity extends Activity {
     private BlockingQueue<Runnable> mDecodeWorkQueue = new LinkedBlockingQueue<Runnable>();
     private MyThreadFactory myThreadFactory = new MyThreadFactory();
     private List<PermissionInformation> permissionsInfos;
+    private List<Movie> movies = new ArrayList<Movie>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,7 +81,6 @@ public class MainActivity extends Activity {
         final Permission permission = new Permission(this, permissionsInfos);
         permission.askPermission();
 
-        final List<Movie> movies = new ArrayList<Movie>();
         movies.add(new Movie("https://image.tmdb.org/t/p/w1280/xjeYI75uMBtBjNlJ0cDJZDFg5Yv.jpg", "Silent Voice", "2016", "Naoko Yamada", "Reiko Yoshida"));
         movies.add(new Movie("https://image.tmdb.org/t/p/w1280/vpQxNHhS6BxmwKiWoUUPancE4mV.jpg", "Your Name", "2016", "Makoto Shinkai", "Makoto Shinkai"));
         movies.add(new Movie("https://image.tmdb.org/t/p/w1280/77Z0g5fc1qWJ7SfHyeiHsMkYx5O.jpg", "Spider-Man : Homecoming ", "2017", "Jon Watts", "Jon Watts"));
@@ -66,6 +93,17 @@ public class MainActivity extends Activity {
         threadPoolExecutor = new ThreadPoolExecutor(1, 3, 1, TimeUnit.SECONDS, mDecodeWorkQueue);
         threadPoolExecutor.setThreadFactory(myThreadFactory);
         refresh = findViewById(R.id.buttonRefresh);
+        save = findViewById(R.id.buttonSave);
+        load = findViewById(R.id.buttonLoad);
+        clear = findViewById(R.id.buttonClear);
+
+        clear.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                movies.clear();
+                adapter.notifyDataSetChanged();
+            }
+        });
+
         refresh.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 String[] nonCritiquePerms = new String[]{CAMERA};
@@ -93,6 +131,100 @@ public class MainActivity extends Activity {
             }
         });
 
+        save.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                saveCipher();
+            }
+        });
+
+        load.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                loadCipher();
+            }
+        });
+    }
+
+    public void saveCipher() {
+        final Dialog dialog = new Dialog(MainActivity.this);
+        dialog.setContentView(R.layout.cipher_password);
+        dialog.setTitle("Cipher Key");
+        dialog.setCancelable(true);
+        final EditText keyEditText = dialog.findViewById(R.id.keyCipher);
+        Button button = dialog.findViewById(R.id.buttonCipherOk);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String key = keyEditText.getText().toString();
+                byte[] keyBytes = new byte[16];
+                System.arraycopy(key.getBytes(), 0, keyBytes, 16 - key.length(), key.length());
+                dialog.cancel();
+                Context context = MainActivity.this.getApplicationContext();
+                try {
+                    File file = new File(context.getExternalCacheDir().getAbsolutePath(), "movies_td");
+                    Toast toast = Toast.makeText(context, file.getAbsolutePath(), Toast.LENGTH_SHORT);
+                    toast.show();
+                    FileOutputStream stream = new FileOutputStream(file);
+                    SecretKeySpec skey = new SecretKeySpec(keyBytes, "AES");
+                    Cipher enc = Cipher.getInstance("AES");
+                    enc.init(Cipher.ENCRYPT_MODE, skey);
+                    CipherOutputStream cos = new CipherOutputStream(stream, enc);
+                    ObjectOutputStream os = new ObjectOutputStream(cos);
+                    os.writeObject(movies);
+                    os.flush();
+                    os.close();
+                    cos.close();
+                    stream.close();
+                } catch (IOException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
+                    e.printStackTrace();
+                    Toast toast = Toast.makeText(context, e.getMessage(), Toast.LENGTH_SHORT);
+                    toast.show();
+                }
+            }
+        });
+        dialog.show();
+    }
+
+    public void loadCipher() {
+        final Dialog dialog = new Dialog(MainActivity.this);
+        dialog.setContentView(R.layout.cipher_password);
+        dialog.setTitle("Cipher Key");
+        dialog.setCancelable(true);
+        final EditText keyEditText = dialog.findViewById(R.id.keyCipher);
+        Button button = dialog.findViewById(R.id.buttonCipherOk);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String key = keyEditText.getText().toString();
+                byte[] keyBytes = new byte[16];
+                System.arraycopy(key.getBytes(), 0, keyBytes, 16 - key.length(), key.length());
+                dialog.cancel();
+                Context context = MainActivity.this.getApplicationContext();
+                try {
+                    File file = new File(context.getExternalCacheDir().getAbsolutePath(), "movies_td");
+                    Toast toast = Toast.makeText(context, file.getAbsolutePath(), Toast.LENGTH_SHORT);
+                    toast.show();
+                    SecretKeySpec skey = new SecretKeySpec(keyBytes, "AES");
+                    Cipher enc = Cipher.getInstance("AES");
+                    enc.init(Cipher.DECRYPT_MODE, skey);
+                    FileInputStream fis = new FileInputStream(file.getAbsolutePath());
+                    CipherInputStream cis = new CipherInputStream(fis, enc);
+                    ObjectInputStream input = new ObjectInputStream(cis);
+                    ArrayList<Movie> movies2 = (ArrayList<Movie>) input.readObject();
+                    input.close();
+                    cis.close();
+                    fis.close();
+                    movies.clear();
+                    movies.addAll(movies2);
+                } catch (IOException | ClassNotFoundException  | NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
+                    e.printStackTrace();
+                    Toast toast = Toast.makeText(context, "Vous n'avez pas saisis la bonne clé", Toast.LENGTH_SHORT);
+                    toast.show();
+                }
+                adapter.notifyDataSetChanged();
+
+            }
+        });
+        dialog.show();
     }
 
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
